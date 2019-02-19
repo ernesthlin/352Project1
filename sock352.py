@@ -1,4 +1,3 @@
-
 import binascii
 import socket as syssock
 import struct
@@ -20,20 +19,17 @@ def init(UDPportTx,UDPportRx):
     
 class socket:
     
-    def __init__(self, sys = None):
+    def __init__(self):
         # Prepare System UDP Socket
         self.syssock = syssock.socket(syssock.AF_INET, syssock.SOCK_DGRAM)
     
     def bind(self,address):
         # Bind - Server will bind on recvPort and wait for incoming connections.
-        print address
-        print recvPort
         self.syssock.bind((address[0], recvPort))
         return 
 
     def connect(self,address):
         # Client will connect to address on sendPort and will receive from recvPort.
-        print("Binding on " + address[0] + ":" + str(recvPort))
         self.syssock.bind((address[0], recvPort))
         self.syssock.connect((address[0], sendPort))
         #
@@ -71,16 +67,82 @@ class socket:
         self.syssock.close()
         return 
 
+    """
+    Send arbitrary buffer of data. This function should break down buffer into a series of 
+    RDP packets to transmit through the socket. 
+    """
     def send(self,buffer):
         bytessent = self.syssock.send(buffer)
         print("SENDING: " + buffer)
+
+        # Pack buffer into a series of RDP Packets.
+        # Send packets using sendRdpPackets(packets)
+
         return bytessent 
 
+    """
+    Receive arbitrary buffer of data. This function should recombine the packets received by 
+    the RDP Protocol into the original buffer of data that was transmitted.
+    This data should be returned to the caller.
+    """
     def recv(self,nbytes):
         data = self.syssock.recv(nbytes)
         print("RECEIVING: " + data)
+
+        # Determine number of packets to receive via RDP Protocol.
+        # Call recvRdpPackets(n) to receive packets.
+        # Unpack packets back into buffer and return to user.
+
         return data 
 
+
+    """
+    Send a set of RDP Packets through the socket. This function will also receive Acknowledgement (ACK) 
+    packets from the recipient to ensure the data has been received.
+    This function will use the Go-Back-N Procedure to re-send any packets that have not been acknowledged. 
+    """
+    def sendRdpPackets(self, packets):
+        # Send packets in order. Start timer to measure timeout for each packet.
+        # Listen for ACKs and re-send packets that exceed timeout.
+        # Send individual packets using sendSingleRdpPacket(packet)
+        pass
+
+    """
+    Receive a set of RDP Packets from the socket. This function will also send Acknowledgement (ACK)
+    packets to the sender to inform them that the packet has been received.  
+    """
+    def recvRdpPackets(self, numPackets):
+        # Continuously call recvSingleRdpPacket and fill in packets receive.
+        # After each received packet, send acknowledgement of latest packet received where all previous
+        # packets have also been received.
+        # Return set of packets received back to caller.
+        pass
+
+    """
+    Sends single RDP Packet. All transmissions across UDP Network should use this.
+    Packets have a size limit. It may be necessary for the caller to break up 
+    the transmitted data into multiple packets and send them in order.
+
+    Once the packet is sent, it is the responsibility of the caller to receive the Acknowledgement (ACK)
+    packet from the receiver of the packet.
+    """
+    def sendSingleRdpPacket(self, packet):
+        # Serlialize RDP Packet into raw data.
+        # Transmit data through UDP socket.
+        pass
+
+    """
+    Receives single RDP Packet. All packets should be received using this.
+    Packets have a size limit. It may be necessary for the caller to 
+    receive multiple packets before they get all the data they want.
+
+    Once the packet is received, it is the responsibility of the caller to send the Acknowledgement (ACK)
+    packet back to the sender of the packet.
+    """
+    def recvSingleRdpPacket(self):
+        # Deserialize raw data and rebuild RDP Packet.
+        # Return RDP Packet to caller.
+        pass
 
     
 
