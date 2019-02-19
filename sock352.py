@@ -6,6 +6,8 @@ import sys
 sendPort = 27182
 recvPort = 27182
 
+PACKET_SIZE_LIMIT_IN_BYTES = 64000
+
 # these functions are global to the class and
 # define the UDP ports all messages are sent
 # and received from
@@ -72,13 +74,13 @@ class socket:
     RDP packets to transmit through the socket. 
     """
     def send(self,buffer):
-        bytessent = self.syssock.send(buffer)
-        print("SENDING: " + buffer)
+        packets = []
+        for i in range(0, len(buffer), PACKET_SIZE_LIMIT_IN_BYTES):
+            bufferChunk = buffer[i:i + PACKET_SIZE_LIMIT_IN_BYTES]
+            # Build packet from buffer chunk
 
-        # Pack buffer into a series of RDP Packets.
-        # Send packets using sendRdpPackets(packets)
-
-        return bytessent 
+        sendRdpPackets(packets)
+        return len(buffer) 
 
     """
     Receive arbitrary buffer of data. This function should recombine the packets received by 
@@ -86,8 +88,7 @@ class socket:
     This data should be returned to the caller.
     """
     def recv(self,nbytes):
-        data = self.syssock.recv(nbytes)
-        print("RECEIVING: " + data)
+
 
         # Determine number of packets to receive via RDP Protocol.
         # Call recvRdpPackets(n) to receive packets.
@@ -144,13 +145,13 @@ class socket:
         # Return RDP Packet to caller.
         pass
 
-def unpack(data):
-    t = struct.unpack(data)
-    return rdpPacketHeader(t)
+def unpack(header, data):
+    headerData = struct.unpack(header)
+    return rdpPacketHeader(headerData, data)
 
-class rdpPacketHeader:
+class rdpPacket:
 
-    def __init__((version, flags, opt_ptr, protocol, header_len, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len)):
+    def __init__((version, flags, opt_ptr, protocol, header_len, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len), data):
         self.version = version # Should be 1
         self.flags = flags
         self.opt_ptr = opt_ptr # Should be 0
@@ -163,10 +164,8 @@ class rdpPacketHeader:
         self.ack_no = ack_no
         self.window = window
         self.payload_len = payload_len
+        self.data = data
 
     def pack():
         return struct.pack('formatString', self.version, self.flags, self.opt_ptr, self.protocol, self.header_len, self.checksum,
-            self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len)
-
-
-
+            self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) + self.data
