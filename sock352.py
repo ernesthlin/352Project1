@@ -147,7 +147,7 @@ class socket:
 
 def unpack(header, data):
     headerData = struct.unpack(header)
-    return rdpPacketHeader(headerData, data)
+    return rdpPacket(headerData, data)
 
 class rdpPacket:
 
