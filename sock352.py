@@ -168,4 +168,4 @@ class rdpPacket:
 
     def pack():
         return struct.pack("!BBBBHHLLQQLL", self.version, self.flags, self.opt_ptr, self.protocol, self.header_len, self.checksum,
-            self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len)
+            self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) + data
