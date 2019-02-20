@@ -10,11 +10,11 @@ recvPort = 27182
 PACKET_SIZE_LIMIT_IN_BYTES = 64000
 
 # Flag bits
-SOCK352_SYN = 0x01
-SOCK352_FIN = 0x02
-SOCK352_ACK = 0x04
-SOCK352_RESET = 0x08
-SOCK352_HAS_OPT = 0x10
+SOCK352_SYN     = 0b00001  # 0x01 == 1
+SOCK352_FIN     = 0b00010  # 0x02 == 2
+SOCK352_ACK     = 0b00100  # 0x04 == 4
+SOCK352_RESET   = 0b01000  # 0x08 == 8
+SOCK352_HAS_OPT = 0b10000  # 0x10 == 16
 
 # these functions are global to the class and
 # define the UDP ports all messages are sent
@@ -207,7 +207,7 @@ class socket:
 
 
     """
-    Generate ACK RDP Packet with no payload
+    Generate RDP Packet with no payload
     """
     def generateEmptyPacket(self, flags,ack_no):
         return rdpPacket((1, flags, 0, 0, 40, 0, 0, 0, ack_no, ack_no, 0, 0), '')
