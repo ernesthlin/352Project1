@@ -8,7 +8,6 @@ sendPort = 27182
 recvPort = 27182
 
 PACKET_SIZE_LIMIT_IN_BYTES = 64000
-WORD_SIZE = 16 # bits (for checksum)
 
 # Flag bits
 SOCK352_SYN     = 0b00001  # 0x01 == 1
@@ -44,6 +43,7 @@ class socket:
         self.syssock.bind((address[0], recvPort))
         self.syssock.connect((address[0], sendPort))
         # Perform 3-way handshake as client
+        # TODO - If no SYN/ACK Received after certain time, restart handshake. 
         handshakeComplete = False
         while (not handshakeComplete):
             # Handshake part 1 - Send SYN to server.
@@ -66,11 +66,12 @@ class socket:
     def accept(self):
         # Server accepts incoming connection, performs 3-way handhsake, and connects to sender's sendPort
         # Perform 3-way handshake as server
+        # TODO - If no ACK Received after certain time, restart handshake.
         handshakeComplete = False
         while (not handshakeComplete):
             # Handshake part 1 - Receive SYN
             packet = self.recvSingleRdpPacket()
-            # Verify SYN
+            # Verify SYN (TODO: Check if packet is corrupted)
             if packet.flags != SOCK352_SYN:
                 continue
             address = packet.sender_address
@@ -80,14 +81,45 @@ class socket:
             self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_SYN | SOCK352_ACK, 0))
             # Handshake part 3 - Receive ACK
             packet = self.recvSingleRdpPacket()
-            # Verify ACK
+            # Verify ACK (TODO: Check if packet is corrupted)
             if packet.flags != SOCK352_ACK:
                 continue
             handshakeComplete = True
         print "3-way Handshake completed from server side."
         return (self, address)
     
+    """
+    Closes connection obetween client and server.
+    Verifies that both client and server are finished by performing 2-way handshake.
+    Client and Server both send a FIN and an ACK for the FIN that they receive.
+    """
     def close(self): 
+        # 2-way double handshake. Send FIN and wait for ACK.
+        # TODO - If First FIN Not Received after timeout, not sure what to do...
+        # This either means: The last ACK sent by this socket was not received OR 
+        # The FIN that was sent to this socket was lost.
+        # In the latter case, it is sufficient to restart the handshake but there is no way
+        # to know if the last ACK was received by the sender. 
+        # TODO - If ACK Not Received after timeout, restart handshake.
+        handshakeComplete = False
+        while (not handshakeComplete):
+            # Handshake part 1 - Send FIN.
+            self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_FIN, 0))
+            # Handshake part 2 - Receive FIN.
+            packet = self.recvSingleRdpPacket()
+            # Verify FIN (TODO: Check if packet is corrupted)
+            if packet.flags != SOCK352_FIN:
+                continue
+            # Handshake part 3 - Send ACK.
+            self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_ACK, 0))
+            # Handshake part 4 - Receive ACK.
+            packet = self.recvSingleRdpPacket()
+            # Verify ACK (TODO: Check if packet is corrupted)
+            if packet.flags != SOCK352_ACK:
+                continue
+            handshakeComplete = True
+
+        print "2-way double handshake complete. Closing Socket."
         # Tell OS we are done with socket.
         self.syssock.close()
         return 
@@ -131,6 +163,8 @@ class socket:
         # Send packets in order. Start timer to measure timeout for each packet.
         # Listen for ACKs and re-send packets that exceed timeout.
         # Send individual packets using sendSingleRdpPacket(packet)
+        # TODO - If ACK 0 not received after timeout, restart 3-way handshake.
+        # TODO - If ACK N > 0 not received after timeout, continue to send from Sequence N.
         lastAckReceived = -1
         lastPacketSent = -1
         while(lastAckReceived + 1 < len(packets)):
@@ -138,10 +172,12 @@ class socket:
             if lastPacketSent + 1 < len(packets):
                 lastPacketSent += 1
                 self.sendSingleRdpPacket(packets[lastPacketSent])
+                print "Sent " + str(lastPacketSent) + " and ACKed " + str(lastAckReceived)
             # Check for ACK
             (readableSockets, writableSockets, err) = select.select([self.syssock], [], [], 0)
             if (len(readableSockets) > 0):
-                packet = self.recvSingleRdpPacket() # Check if packet is corrupted
+                packet = self.recvSingleRdpPacket() # (TODO: Check if packet is corrupted. If so, ignore it).
+                print "Packet Received. ACK: " + str(packet.ack_no)
                 lastAckReceived = max(packet.ack_no, lastAckReceived)
             # Check if packet exceeded timeout
             if lastPacketSent > lastAckReceived:
@@ -158,14 +194,18 @@ class socket:
         # After each received packet, send acknowledgement of latest packet received where all previous
         # packets have also been received.
         # Return set of packets received back to caller.
+        # TODO - If Sequence 0 is not received after timeout, restart 3-way handshake.
+        # TODO - If Sequence N > 0 not received after timeout, re-send ACK(N-1)
         ret = [None] * numPackets
         lastAck = -1
         while(lastAck + 1 < numPackets):
+            (readableSockets, writableSockets, err) = select.select([self.syssock], [], [], 0)
             nextPacket = self.recvSingleRdpPacket()
-            if (nextPacket.sequence_no == lastAck + 1): # Also need to check if packet is not corrupted
+            print "Received Sequence no: " + str(nextPacket.sequence_no)
+            if (nextPacket.sequence_no == lastAck + 1): # (TODO: Check if packet is corrupted. If so, ignore it).
                 lastAck += 1
                 ret[lastAck] = nextPacket
-            self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_ACK, lastAck))
+                self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_ACK, lastAck))
         return ret
 
 
@@ -178,7 +218,7 @@ class socket:
     packet from the receiver of the packet.
     """
     def sendSingleRdpPacket(self, packet):
-        # Serlialize RDP Packet into raw data.
+        # Serialize RDP Packet into raw data.
         # Transmit data through UDP socket.
         self.syssock.send(packet.pack())
 
@@ -211,7 +251,6 @@ class socket:
     """
     def generateEmptyPacket(self, flags,ack_no):
         return rdpPacket((1, flags, 0, 0, 40, 0, 0, 0, ack_no, ack_no, 0, 0), '')
-
 
 class rdpPacket:
 
@@ -252,7 +291,6 @@ class rdpPacket:
             return None
 
         return new_checksum
-
     """
     Returns 0 if packet is not corrupted (checksum was unchanged)
     """
