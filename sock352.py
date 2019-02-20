@@ -8,6 +8,7 @@ sendPort = 27182
 recvPort = 27182
 
 PACKET_SIZE_LIMIT_IN_BYTES = 64000
+WORD_SIZE = 16 # bits (for checksum)
 
 # Flag bits
 SOCK352_SYN     = 0b00001  # 0x01 == 1
@@ -179,7 +180,6 @@ class socket:
     def sendSingleRdpPacket(self, packet):
         # Serlialize RDP Packet into raw data.
         # Transmit data through UDP socket.
-        rawData = packet.pack()
         self.syssock.send(packet.pack())
 
     """
@@ -212,6 +212,7 @@ class socket:
     def generateEmptyPacket(self, flags,ack_no):
         return rdpPacket((1, flags, 0, 0, 40, 0, 0, 0, ack_no, ack_no, 0, 0), '')
 
+
 class rdpPacket:
 
     def __init__(self, (version, flags, opt_ptr, protocol, header_len, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len), data):
@@ -233,5 +234,27 @@ class rdpPacket:
         return struct.pack("!BBBBHHLLQQLL", self.version, self.flags, self.opt_ptr, self.protocol, self.header_len, self.checksum,
             self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) + self.data
 
-    def generateChecksum(self):
-        pass
+    def generateChecksum(self, replace = True):
+        new_checksum = 0
+        num_bytes = WORD_SIZE / 8
+        list_words = [self.data[i : i + num_bytes] for i in range(0, len(self.data), num_bytes)]
+
+        for word in list_words:
+            if len(word) == 2:
+                new_checksum ^= struct.unpack("!H", word)[0]
+            elif len(word) == 1:
+                new_checksum ^= struct.unpack("!B", word)[0]
+
+        new_checksum = ~new_checksum
+
+        if replace:
+            self.checksum = new_checksum
+            return None
+
+        return new_checksum
+
+    """
+    Returns 0 if packet is not corrupted (checksum was unchanged)
+    """
+    def check_checksum(self):
+        return self.checksum ^ generateChecksum(self, replace = False)
