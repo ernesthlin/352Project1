@@ -249,7 +249,7 @@ class socket:
     """
     Generate RDP Packet with no payload
     """
-    def generateEmptyPacket(self, flags,ack_no):
+    def generateEmptyPacket(self, flags, ack_no):
         return rdpPacket((1, flags, 0, 0, 40, 0, 0, 0, ack_no, ack_no, 0, 0), '')
 
 class rdpPacket:
@@ -273,6 +273,11 @@ class rdpPacket:
         return struct.pack("!BBBBHHLLQQLL", self.version, self.flags, self.opt_ptr, self.protocol, self.header_len, self.checksum,
             self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) + self.data
 
+    """
+    Generates the checksum for the packet's data and sets the packet's checksum field to checksum as a bytes string.
+    Set "replace" to False to return the checksum as an integer and not overwrite the packet's checksum field.
+    SUPP NOTE: The packet's checksum needs to be in bytes format because the checksum is supposed to be 2 bytes
+    """
     def generateChecksum(self, replace = True):
         new_checksum = 0
         num_bytes = WORD_SIZE / 8
@@ -287,12 +292,14 @@ class rdpPacket:
         new_checksum = ~new_checksum
 
         if replace:
-            self.checksum = new_checksum
+            self.checksum = struct.pack("!i", new_checksum)[2:]
             return None
 
         return new_checksum
+
     """
     Returns 0 if packet is not corrupted (checksum was unchanged)
     """
     def check_checksum(self):
-        return self.checksum ^ generateChecksum(self, replace = False)
+        return struct.unpack("!H", self.checksum)[0] ^ generateChecksum(self, replace = False)
+
