@@ -20,6 +20,11 @@ SOCK352_HAS_OPT = 0b10000  # 0x10 == 16
 # define the UDP ports all messages are sent
 # and received from
 
+# If last packet received == next packet received
+# ignore and resend last packet sent.
+# Last Packet Received
+# Last Packet Sent
+
 def init(UDPportTx,UDPportRx): 
     global sendPort
     global recvPort
@@ -32,6 +37,8 @@ class socket:
     def __init__(self):
         # Prepare System UDP Socket
         self.syssock = syssock.socket(syssock.AF_INET, syssock.SOCK_DGRAM)
+        self.lastPacketReceived = None
+        self.lastPacketSent = None
     
     def bind(self,address):
         # Bind - Server will bind on recvPort and wait for incoming connections.
@@ -95,11 +102,6 @@ class socket:
     """
     def close(self): 
         # 2-way double handshake. Send FIN and wait for ACK.
-        # TODO - If First FIN Not Received after timeout, not sure what to do...
-        # This either means: The last ACK sent by this socket was not received OR 
-        # The FIN that was sent to this socket was lost.
-        # In the latter case, it is sufficient to restart the handshake but there is no way
-        # to know if the last ACK was received by the sender. 
         # TODO - If ACK Not Received after timeout, restart handshake.
         handshakeComplete = False
         while (not handshakeComplete):
@@ -163,7 +165,6 @@ class socket:
         # Send packets in order. Start timer to measure timeout for each packet.
         # Listen for ACKs and re-send packets that exceed timeout.
         # Send individual packets using sendSingleRdpPacket(packet)
-        # TODO - If ACK 0 not received after timeout, restart 3-way handshake.
         # TODO - If ACK N > 0 not received after timeout, continue to send from Sequence N.
         lastAckReceived = -1
         lastPacketSent = -1
@@ -194,7 +195,6 @@ class socket:
         # After each received packet, send acknowledgement of latest packet received where all previous
         # packets have also been received.
         # Return set of packets received back to caller.
-        # TODO - If Sequence 0 is not received after timeout, restart 3-way handshake.
         # TODO - If Sequence N > 0 not received after timeout, re-send ACK(N-1)
         ret = [None] * numPackets
         lastAck = -1
@@ -220,6 +220,7 @@ class socket:
     def sendSingleRdpPacket(self, packet):
         # Serialize RDP Packet into raw data.
         # Transmit data through UDP socket.
+        self.lastPacketSent = packet
         self.syssock.send(packet.pack())
 
     """
@@ -243,6 +244,12 @@ class socket:
             data = packedPacket[40:]
         ret = rdpPacket(header, data)
         ret.sender_address = address
+
+        # Ignore packet and resend last packet sent.
+        if ret.equals(self.lastPacketReceived):
+            sendSingleRdpPacket(self.lastPacketSent)
+
+        self.lastPacketReceived = ret
         return ret
 
 
