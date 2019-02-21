@@ -9,6 +9,8 @@ recvPort = 27182
 
 PACKET_SIZE_LIMIT_IN_BYTES = 64000
 
+WORD_SIZE = 16 # BITS
+
 # Flag bits
 SOCK352_SYN     = 0b00001  # 0x01 == 1
 SOCK352_FIN     = 0b00010  # 0x02 == 2
