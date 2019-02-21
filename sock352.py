@@ -270,15 +270,16 @@ class rdpPacket:
         self.data = data
 
     def pack(self):
-        return struct.pack("!BBBBHHLLQQLL", self.version, self.flags, self.opt_ptr, self.protocol, self.header_len, self.checksum,
-            self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) + self.data
+        return struct.pack("!BBBBH", self.version, self.flags, self.opt_ptr, self.protocol, self.header_len) 
+            + struct.pack("!i", self.checksum)[2:]
+            + struct.pack("!LLQQLL", self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) 
+            + self.data
 
     """
-    Generates the checksum for the packet's data and sets the packet's checksum field to checksum as a bytes string.
-    Set "replace" to False to return the checksum as an integer and not overwrite the packet's checksum field.
-    SUPP NOTE: The packet's checksum needs to be in bytes format because the checksum is supposed to be 2 bytes
+    Generates the checksum for the packet's data.
+    The packet's checksum needs to be in bytes format because the checksum is supposed to be 2 bytes
     """
-    def generateChecksum(self, replace = True):
+    def generateChecksum(self):
         new_checksum = 0
         num_bytes = WORD_SIZE / 8
         list_words = [self.data[i : i + num_bytes] for i in range(0, len(self.data), num_bytes)]
@@ -290,16 +291,11 @@ class rdpPacket:
                 new_checksum ^= struct.unpack("!B", word)[0]
 
         new_checksum = ~new_checksum
-
-        if replace:
-            self.checksum = struct.pack("!i", new_checksum)[2:]
-            return None
-
         return new_checksum
 
     """
     Returns 0 if packet is not corrupted (checksum was unchanged)
     """
     def check_checksum(self):
-        return struct.unpack("!H", self.checksum)[0] ^ generateChecksum(self, replace = False)
+        return self.checksum ^ generateChecksum(self)
 
