@@ -262,19 +262,19 @@ class socket:
 class rdpPacket:
 
     def __init__(self, (version, flags, opt_ptr, protocol, header_len, checksum, source_port, dest_port, sequence_no, ack_no, window, payload_len), data):
+        self.data = data
         self.version = version # Should be 1
         self.flags = flags
         self.opt_ptr = opt_ptr # Should be 0
         self.protocol = protocol # Should be 0
         self.header_len = header_len # Should be 40
-        self.checksum = checksum
+        self.checksum = self.generateChecksum()
         self.source_port = source_port # Should be 0
         self.dest_port = dest_port # Should be 0
         self.sequence_no = sequence_no
         self.ack_no = ack_no
         self.window = window
         self.payload_len = payload_len
-        self.data = data
 
     def pack(self):
         return struct.pack("!BBBBH", self.version, self.flags, self.opt_ptr, self.protocol, self.header_len) + struct.pack("!i", self.checksum)[2:] + struct.pack("!LLQQLL", self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) + self.data
