@@ -245,6 +245,8 @@ class socket:
         ret = rdpPacket(header, data)
         ret.sender_address = address
 
+        assert ret.equals(ret)
+
         # Ignore packet and resend last packet sent.
         if ret.equals(self.lastPacketReceived):
             sendSingleRdpPacket(self.lastPacketSent)
@@ -281,6 +283,12 @@ class rdpPacket:
             + struct.pack("!i", self.checksum)[2:]
             + struct.pack("!LLQQLL", self.source_port, self.dest_port, self.sequence_no, self.ack_no, self.window, self.payload_len) 
             + self.data
+
+    def equals(self, packet):
+        for field in self.__dict__.keys():
+            if getattr(self, field) != getattr(packet, field):
+                return False
+        return True
 
     """
     Generates the checksum for the packet's data.
