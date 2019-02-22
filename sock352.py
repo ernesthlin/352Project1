@@ -3,6 +3,7 @@ import socket as syssock
 import struct
 import sys
 import select
+import time
 
 sendPort = 27182
 recvPort = 27182
@@ -10,6 +11,8 @@ recvPort = 27182
 PACKET_SIZE_LIMIT_IN_BYTES = 64000
 
 WORD_SIZE = 16 # BITS
+
+TIME_OUT = 2 # SECONDS
 
 # Flag bits
 SOCK352_SYN     = 0b00001  # 0x01 == 1
@@ -170,23 +173,54 @@ class socket:
         # TODO - If ACK N > 0 not received after timeout, continue to send from Sequence N.
         lastAckReceived = -1
         lastPacketSent = -1
+        timer = Timer(TIME_OUT)
+
         while(lastAckReceived + 1 < len(packets)):
+
             # Send next packet
             if lastPacketSent + 1 < len(packets):
+                print "More packets to send."
                 lastPacketSent += 1
+
+                # start timer for packet # (lastAckReceived + 1) if not already started
+                if not timer.started():
+                    print "Starting timer for " + str(lastPacketSent)
+                    timer.start_timer()
+
                 self.sendSingleRdpPacket(packets[lastPacketSent])
-                print "Sent " + str(lastPacketSent) + " and ACKed " + str(lastAckReceived)
+                print "Sent " + str(lastPacketSent) + ", last ACK received: " + str(lastAckReceived)
+
             # Check for ACK
             (readableSockets, writableSockets, err) = select.select([self.syssock], [], [], 0)
             if (len(readableSockets) > 0):
                 packet = self.recvSingleRdpPacket() # (TODO: Check if packet is corrupted. If so, ignore it).
-                print "Packet Received. ACK: " + str(packet.ack_no)
+                print "ACK Packet Received. ACK: " + str(packet.ack_no)
+
+                # start timer if ACK # not previously seen was received and if ACK is not completely up-to-date
+                if (lastAckReceived < packet.ack_no < lastPacketSent): 
+                    print "Starting timer for packet " + str(packet.ack_no + 1)
+                    timer.start_timer()
+
                 lastAckReceived = max(packet.ack_no, lastAckReceived)
+
             # Check if packet exceeded timeout
-            if lastPacketSent > lastAckReceived:
-                nextAckExpected = packets[lastAckReceived + 1]
-                if False: # If segment hasn't received ACK after timeout, resend.
-                    lastPacketSent = lastAckReceived + 1
+            if lastPacketSent > lastAckReceived: # ACKs are not up-to-date
+
+                nextAckExpected = packets[lastAckReceived + 1] # WHAT IS THIS LINE???
+
+                # If segment hasn't received ACK after timeout, resend.
+                if timer.time_out(): 
+
+                    # stop the timer and set timer for packet # (lastAckReceived + 1)
+                    print "Timed out. Starting timer for packet " + str(lastAckReceived + 1)
+                    timer.start_timer()
+                    lastPacketSent = lastAckReceived # this resets so that all unacknowledged packets are sent again (timeout)
+
+            # same as lastPacketSent == lastAckReceived (ACKs are up-to-date)    
+            else: 
+                # stop the timer
+                print "Timer stopped, everything up-to-date. lastAckReceived = " + str(lastAckReceived)
+                timer.stop_timer()
 
     """
     Receive a set of RDP Packets from the socket. This function will also send Acknowledgement (ACK)
@@ -207,6 +241,8 @@ class socket:
             if (nextPacket.sequence_no == lastAck + 1): # (TODO: Check if packet is corrupted. If so, ignore it).
                 lastAck += 1
                 ret[lastAck] = nextPacket
+                self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_ACK, lastAck))
+            elif (nextPacket.sequence_no <= lastAck): # if receive old packet, resend the current cumulative ACK
                 self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_ACK, lastAck))
         return ret
 
@@ -313,3 +349,41 @@ class rdpPacket:
     def check_checksum(self):
         return self.checksum ^ generateChecksum(self)
 
+
+"""
+Timer Class
+"""
+class Timer:
+    """
+    A timer has a start time that indicates when the timer has started, which is initially set to zero.
+    The timeout to tell when the timer has "timed out" is also specified.
+    """
+    def __init__(self, timeout):
+        self.start = None
+        self.timeout = timeout
+
+    """
+    Return true if timer is running, false otherwise.
+    """
+    def started(self):
+        return self.start != None
+
+    """
+    Starts the timer.
+    """
+    def start_timer(self):
+        self.start = time.time()
+
+    """
+    Stops the timer.
+    """
+    def stop_timer(self):
+        self.start = None
+
+    """
+    Returns true if the timer has timed out, false otherwise.
+    """
+    def time_out(self):
+        if self.started():
+            return time.time() - self.start >= self.timeout
+        return False

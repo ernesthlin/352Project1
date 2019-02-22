@@ -14,7 +14,7 @@ socket.accept()
 print "Receiving..."
 data = socket.recv(488890)
 
-print "Sending: " + data
+print "Sending: " + data[:20] + "..." + data[-20:]
 ret = socket.send(data)
 
 print "Sent."
