@@ -57,6 +57,7 @@ class socket:
         # Perform 3-way handshake as client
         # TODO - If no SYN/ACK Received after certain time, restart handshake. 
         handshakeComplete = False
+
         while (not handshakeComplete):
             # Handshake part 1 - Send SYN to server.
             self.sendSingleRdpPacket(self.generateEmptyPacket(SOCK352_SYN, 0))
