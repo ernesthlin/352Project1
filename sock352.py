@@ -4,6 +4,7 @@ import struct
 import sys
 import select
 import time
+import random
 
 sendPort = 27182
 recvPort = 27182
@@ -12,7 +13,7 @@ PACKET_SIZE_LIMIT_IN_BYTES = 64000
 
 WORD_SIZE = 16 # BITS
 
-TIME_OUT = 2 # SECONDS
+TIME_OUT = 0.2 # SECONDS
 
 # Flag bits
 SOCK352_SYN     = 0b00001  # 0x01 == 1
@@ -44,6 +45,7 @@ class socket:
         self.syssock = syssock.socket(syssock.AF_INET, syssock.SOCK_DGRAM)
         self.lastPacketReceived = None
         self.lastPacketSent = None
+        self.dropPercentage = 0
     
     def bind(self,address):
         # Bind - Server will bind on recvPort and wait for incoming connections.
@@ -259,7 +261,14 @@ class socket:
     def sendSingleRdpPacket(self, packet):
         # Serialize RDP Packet into raw data.
         # Transmit data through UDP socket.
+
         self.lastPacketSent = packet
+
+        rand = random.randint(1, 100)
+        if (rand < self.dropPercentage):
+            # Drop Packet.
+            print "Dropping packet (Seq No: " + str(packet.sequence_no) + ")"
+            return
         self.syssock.send(packet.pack())
 
     """
