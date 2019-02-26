@@ -1,6 +1,6 @@
 import sock352
 
-sock352.init(28911, 28912)
+sock352.init(38911, 38912)
 
 socket = sock352.socket()
 
@@ -15,7 +15,7 @@ s = "".join([str(i) for i in range(100000)])
 print len(s)
 
 print "Connecting..."
-socket.connect(('localhost', 1010))
+socket.connect(('ilab.cs.rutgers.edu', 1010))
 print "Connected"
 
 print "Sending TEST"

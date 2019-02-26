@@ -1,6 +1,6 @@
 import sock352
 
-sock352.init(28912, 28911)
+sock352.init(38912, 38911)
 
 socket = sock352.socket()
 
