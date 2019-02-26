@@ -9,7 +9,7 @@ import random
 sendPort = 27182
 recvPort = 27182
 
-PACKET_SIZE_LIMIT_IN_BYTES = 64000
+PACKET_SIZE_LIMIT_IN_BYTES = 1000
 
 WORD_SIZE = 16 # BITS
 
@@ -54,7 +54,7 @@ class socket:
 
     def connect(self,address):
         # Client will connect to address on sendPort and will receive from recvPort.
-        self.syssock.bind((address[0], recvPort))
+        self.syssock.bind(('', recvPort))
         self.syssock.connect((address[0], sendPort))
         # Perform 3-way handshake as client
         # TODO - If no SYN/ACK Received after certain time, restart handshake. 
@@ -295,7 +295,7 @@ class socket:
 
         # Ignore packet and resend last packet sent.
         if ret.equals(self.lastPacketReceived):
-            sendSingleRdpPacket(self.lastPacketSent)
+            self.sendSingleRdpPacket(self.lastPacketSent)
 
         self.lastPacketReceived = ret
         return ret
