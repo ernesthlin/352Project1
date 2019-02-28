@@ -213,6 +213,7 @@ class socket:
         ret = [None] * numPackets
         lastAck = -1
         while(lastAck + 1 < numPackets):
+            # Check to see if socket has data in its buffer to recv.
             (readableSockets, writableSockets, err) = select.select([self.syssock], [], [], 0)
             nextPacket = self.recvSingleRdpPacket()
             # print "Received Sequence no: " + str(nextPacket.sequence_no)
