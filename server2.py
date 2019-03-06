@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# This is the CS 352 Spring 2017 Client for the 1st programming
+# This is the CS 352 Spring 2017 Server for the 1st programming
 # project
 
 
@@ -62,7 +62,7 @@ def main():
     s = sock352.socket()
 
     # set the fragment size we will read on 
-    FRAGMENTSIZE = 4096
+    # FRAGMENTSIZE = 4096
 
     # binding the host to empty allows reception on
     # all network interfaces
@@ -79,43 +79,46 @@ def main():
     fn = longPacker.unpack(long)
     filelen = fn[0]
 
-    # the MD5 computes a unique hash for all the data 
-    mdhash = md5.new()
+    # # the MD5 computes a unique hash for all the data 
+    # mdhash = md5.new()
 
-    bytes_to_receive = filelen
+    # bytes_to_receive = filelen
     start_stamp = time.clock()
 
     # main loop to receive the data from the client 
-    while (bytes_to_receive > 0):
-        if (bytes_to_receive >= FRAGMENTSIZE): 
-            fragment = s2.recv(FRAGMENTSIZE)
-        else: 
-            fragment = s2.recv(bytes_to_receive)
+    # while (bytes_to_receive > 0):
+    #     if (bytes_to_receive >= FRAGMENTSIZE): 
+    #         fragment = s2.recv(FRAGMENTSIZE)
+    #     else: 
+    #         fragment = s2.recv(bytes_to_receive)
 
-        mdhash.update(fragment)
-        bytes_to_receive = bytes_to_receive - len(fragment)
-        fd.write(fragment)
+    #     mdhash.update(fragment)
+    #     bytes_to_receive = bytes_to_receive - len(fragment)
+    #     fd.write(fragment)
+    file = s2.recv(filelen)
+    # mdhash.update(file)
+    fd.write(file)
 
     end_stamp = time.clock() 
     lapsed_seconds = end_stamp - start_stamp
 
     # finish computing the MD5 hash 
-    local_digest = mdhash.digest()
+    # local_digest = mdhash.digest()
     
     # receive the size of the remote hash 
-    dl = longPacker.unpack(s2.recv(4))
-    digestlen = dl[0]
-    remote_digest = s2.recv(digestlen)
+    # dl = longPacker.unpack(s2.recv(4))
+    # digestlen = dl[0]
+    # remote_digest = s2.recv(digestlen)
 
-    # check is the size matches 
-    if (len(remote_digest) != digestlen):
-        raise RuntimeError("socket error")
+    # # check is the size matches 
+    # if (len(remote_digest) != digestlen):
+    #     raise RuntimeError("socket error")
     
-    # compare the two digests, byte for byte 
-    for i, server_byte in enumerate(local_digest):
-        client_byte = remote_digest[i]
-        if (client_byte != server_byte):
-            print( "digest failed at byte %d %c %c " % (i,client_byte,server_byte))
+    # # compare the two digests, byte for byte 
+    # for i, server_byte in enumerate(local_digest):
+    #     client_byte = remote_digest[i]
+    #     if (client_byte != server_byte):
+    #         print( "digest failed at byte %d %c %c " % (i,client_byte,server_byte))
 
     if (lapsed_seconds > 0.0):
         print ("server1: received %d bytes in %0.6f seconds, %0.6f MB/s " % (filelen, lapsed_seconds,
